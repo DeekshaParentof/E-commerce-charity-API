@@ -80,16 +80,16 @@ async function getCharitiesOfAdmin(req, res) {
 
             const admin_data = await Charity.find({ user_id: req.user._id }).populate({
                 path: "user_id",
-                selected: "name"
+                select: "name"
             })
             return res.status(200).json({
                 status: "success",
                 data: admin_data
             })
         } else if (req.user.role == "super_admin") {
-            const data = await Category.find().populate({
+            const data = await Charity.find().populate({
                 path: "user_id",
-                selected: "name"
+                select: "name"
             })
             return res.status(200).json({
                 status: "success",

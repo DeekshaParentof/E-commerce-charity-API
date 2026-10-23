@@ -1,11 +1,12 @@
 {
   "name": "e-commerce-charity-api",
   "version": "1.0.0",
-  "description": "",
+  "description": "Express + MongoDB API for a charity e-commerce platform",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed": "node scripts/seed.js"
   },
   "keywords": [],
   "author": "",
@@ -21,7 +22,12 @@
     "mongoose": "^8.17.0",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",
-    "nodemon": "^3.1.10",
     "twilio": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }

@@ -7,7 +7,7 @@ const { addAddress, getAddressOfUser, updateAddressOfUser,deleteAddressOfUser } 
 
 router.post( "/", authenticateUser,addressValidationSchema, validateAddress, addAddress);
 router.get("/",authenticateUser,getAddressOfUser)
-router.put("/:id",authenticateUser,updateAddressOfUser)
+router.put("/:id",authenticateUser,addressValidationSchema, validateAddress,updateAddressOfUser)
 router.delete("/:id",authenticateUser,deleteAddressOfUser)
 
 module.exports = router;

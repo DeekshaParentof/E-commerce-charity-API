@@ -40,13 +40,10 @@ async function addAddress(req, res) {
 
 async function getAddressOfUser(req, res) {
     try {
-        const data = await Address.findOne({user_id:req.user_id}).populate({
-            path: "user_id",
-            select: "name"
-        })
+        const data = await Address.find({user_id:req.user_id}).sort({ createdAt: -1 })
         return res.status(200).json({
             status: "Success",
-            message: "Here is your address",
+            message: "Here are your addresses",
             data: data
         })
 
@@ -61,7 +58,7 @@ async function getAddressOfUser(req, res) {
 async function updateAddressOfUser(req,res){
     try{
         const { id } = req.params
-        const address = await Address.findOne({_id:id})
+        const address = await Address.findOne({_id:id, user_id:req.user_id})
         if(!address){
             return res.status(404).json({
                 status:"Failed",
@@ -69,10 +66,9 @@ async function updateAddressOfUser(req,res){
             })
         }
         const { location, city, pincode, state, country } = req.body;
-        const updated_address  = await Address.updateOne({_id:id},{
-            $set :{location,city,pincode,state,country}
-        })
-        return res.status(201).json({
+        address.set({ location, city, pincode, state, country: country || "India" })
+        const updated_address = await address.save()
+        return res.status(200).json({
             status:"Success",
             message:"Address updated successfully",
             data:updated_address
@@ -88,14 +84,14 @@ async function updateAddressOfUser(req,res){
 async function deleteAddressOfUser(req,res) {
     try{
         const { id } =  req.params
-         const address = await Address.findOne({_id:id})
+        const address = await Address.findOne({_id:id, user_id:req.user_id})
         if(!address){
             return res.status(404).json({
                 status:"Failed",
                 message:"Address not found!"
             })
         }
-        const delete_address = await Address.deleteOne({_id:id})
+        await Address.deleteOne({_id:id})
         return res.status(200).json({
             status:"success",
             message:"Address deleted successfully"
@@ -105,7 +101,7 @@ async function deleteAddressOfUser(req,res) {
             status: "Failed",
             message: err.message
         });
-    }  
+    }
 }
 
 

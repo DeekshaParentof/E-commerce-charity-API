@@ -4,17 +4,28 @@ const User = require("../models/userSchema");
 const jwt_key = process.env.JWT_SECRETE_KEY;
 
 async function authenticateUser(req, res, next) {
-    try {
-        let token = req.headers["authorization"].split(" ")[1];
-        if (!token) {
-            return res.status(403).json({
-                status: "Failed",
-                message: "Unauthorized user"
-            });
-        }
+    const header = req.headers["authorization"] || "";
+    const token = header.startsWith("Bearer ") ? header.split(" ")[1] : null;
 
-        let decoded = await jwt.verify(token, jwt_key);
-        const user = await User.findById(decoded.user_id);
+    if (!token) {
+        return res.status(401).json({
+            status: "Failed",
+            message: "Unauthorized user"
+        });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(token, jwt_key);
+    } catch (err) {
+        return res.status(401).json({
+            status: "Failed",
+            message: err.name === "TokenExpiredError" ? "Session expired, please login again" : "Invalid token"
+        });
+    }
+
+    try {
+        const user = await User.findById(decoded.user_id).select("-password");
 
         if (!user) {
             return res.status(401).json({
@@ -22,8 +33,8 @@ async function authenticateUser(req, res, next) {
                 message: "User not found"
             });
         }
-        req.user = user;         
-        req.user_id = user._id;  
+        req.user = user;
+        req.user_id = user._id;
 
         next();
     } catch (err) {

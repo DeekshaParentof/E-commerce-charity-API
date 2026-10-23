@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Product = require("../models/productSchema");
 const Charity = require("../models/charitySchema");
 const Category = require("../models/categorySchema");
@@ -247,9 +248,24 @@ async function updateProductStatus(req, res) {
     }
 }
 
+function escapeRegex(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Optional query params: ?status=active&category=<id>&charity=<id>&search=<text>
 async function getAllProducts(req, res) {
     try {
-        const data = await Product.find()
+        const { status, category, charity, search } = req.query
+        const filter = {}
+        if (status) filter.status = status
+        if (category && mongoose.isValidObjectId(category)) filter.category_id = category
+        if (charity && mongoose.isValidObjectId(charity)) filter.charity_id = charity
+        if (search) filter.title = { $regex: escapeRegex(String(search)), $options: "i" }
+
+        const data = await Product.find(filter)
+            .populate({ path: "charity_id", select: "name status" })
+            .populate({ path: "category_id", select: "title" })
+            .sort({ createdAt: -1 })
         return res.status(200).json({
             status: "success",
             message: "Here is all the products",
@@ -310,24 +326,15 @@ async function getProductsByCharityIdForAdmin(req, res) {
 async function getAllProductsByCharityId(req, res) {
     try {
         const  charity_id  = req.params.id
-        const charity = await Charity.find({ _id: charity_id});
+        const charity = await Charity.findOne({ _id: charity_id});
 
         if (!charity) {
-            return res.status(403).json({
+            return res.status(404).json({
                 status: "Failed",
                 message: "Charity not found",
             });
         }
         const products = await Product.find({ charity_id: charity_id });
-        // console.log(charity_id);
-        
-
-          if (!products || products.length === 0) {
-            return res.status(404).json({
-                status: "Failed",
-                message: "No products found for this charity",
-            });
-        }
 
         return res.status(200).json({
             status: "success",
@@ -347,22 +354,15 @@ async function getAllProductsByCharityId(req, res) {
 async function getAllProductsByCategoryId(req, res) {
     try {
         const  category_id  = req.params.id
-        const category = await Charity.find({ _id: category_id});
+        const category = await Category.findOne({ _id: category_id});
 
         if (!category) {
-            return res.status(403).json({
+            return res.status(404).json({
                 status: "Failed",
                 message: "Category not found",
             });
         }
         const products = await Product.find({ category_id: category_id });
-
-          if (!products || products.length === 0) {
-            return res.status(404).json({
-                status: "Failed",
-                message: "No products found for this category",
-            });
-        }
 
         return res.status(200).json({
             status: "success",
@@ -383,6 +383,8 @@ async function getProductById(req,res) {
     try{
         const {id } = req.params
         const product = await Product.findOne({_id:id})
+            .populate({ path: "charity_id", select: "name status banner description" })
+            .populate({ path: "category_id", select: "title" })
         if(!product){
             return res.status(404).json({
                 status:"Failed",

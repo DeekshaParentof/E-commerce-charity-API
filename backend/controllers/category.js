@@ -67,7 +67,7 @@ async function getCategoriesOfAdmin(req, res) {
             // console.log(req.user_id);
             const admin_data = await Category.find({ user_id: req.user._id }).populate({
                 path: "user_id",
-                selected: "name"
+                select: "name"
             })
             return res.status(200).json({
                 status: "success",
@@ -76,7 +76,7 @@ async function getCategoriesOfAdmin(req, res) {
         } else if (req.user.role == "super_admin") {
             const data = await Category.find().populate({
                 path: "user_id",
-                selected: "name"
+                select: "name"
             })
             return res.status(200).json({
                 status: "success",

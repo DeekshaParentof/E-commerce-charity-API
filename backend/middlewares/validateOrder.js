@@ -7,11 +7,16 @@ const orderValidationSchema = [
 
     body("charity_id")
     .notEmpty().withMessage("Charity ID is required")
-    .isMongoId().withMessage("Product ID should be a valid ObjectId"),
+    .isMongoId().withMessage("Charity ID should be a valid ObjectId"),
 
     body("quantity")
     .notEmpty().withMessage("Quantity is required")
     .isInt({ min: 1 }).withMessage("Quantity must be at least 1")
+    .toInt(),
+
+    body("address_id")
+    .optional()
+    .isMongoId().withMessage("Address ID should be a valid ObjectId")
 
 ]
 
@@ -25,7 +30,7 @@ function validateOrder(req,res,next){
         })
     }else{
         next();
-    }  
+    }
 }
 
 module.exports = {orderValidationSchema,validateOrder}
