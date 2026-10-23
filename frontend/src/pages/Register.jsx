@@ -1,17 +1,32 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useAuth, useToast } from "../context/contexts";
+import { loginUser, registerUser } from "../services/userService";
+import { getErrorMessage } from "../services/api";
+import { Alert } from "../components/Status";
+
+// Mirrors backend/middlewares/validateRegister.js
+function validate({ name, email, mobile, password }) {
+  if (!/^[A-Za-z\s]+$/.test(name.trim())) return "Name should contain only letters and spaces";
+  if (!/^\S+@\S+\.\S+$/.test(email)) return "Please enter a valid email";
+  if (!/^[0-9]{10}$/.test(mobile)) return "Mobile number must be 10 digits";
+  if (password.length < 6 || password.length > 12) return "Password must be 6-12 characters";
+  if (!/^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/.test(password))
+    return "Password needs an uppercase letter, a number and a special character (!@#$%^&*)";
+  return "";
+}
 
 function Register() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    mobile: "",
-    password: "",
-    role: "user",
-  });
+  const { login, isAuthenticated } = useAuth();
+  const toast = useToast();
+  const [formData, setFormData] = useState({ name: "", email: "", mobile: "", password: "" });
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from || "/";
+
+  if (isAuthenticated && !submitting) return <Navigate to={redirectTo} replace />;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -19,53 +34,61 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const message = validate(formData);
+    if (message) return setError(message);
     setError("");
+    setSubmitting(true);
     try {
-      await api.post("/users/register", formData);
-      navigate("/login");
+      const data = { ...formData, name: formData.name.trim(), email: formData.email.trim() };
+      await registerUser(data);
+      // Log straight in so the user doesn't have to re-enter their details.
+      const res = await loginUser({ userId: data.email, password: data.password });
+      login(res.data.token, res.data.user);
+      toast.success("Account created. Welcome!");
+      navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      setError(getErrorMessage(err, "Registration failed"));
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
+    <div className="container-page flex justify-center py-12 sm:py-20">
+      <div className="card w-full max-w-md p-6 sm:p-8">
+        <h1 className="text-2xl font-bold">Create your account</h1>
+        <p className="mt-1 text-sm text-gray-500">Every order you place supports a charity.</p>
 
-        {error && <p className="text-red-500 mb-4">{error}</p>}
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4" noValidate>
+          {error && <Alert>{error}</Alert>}
+          <div>
+            <label htmlFor="name" className="label">Full name</label>
+            <input id="name" name="name" value={formData.name} onChange={handleChange} className="input" autoComplete="name" required />
+          </div>
+          <div>
+            <label htmlFor="email" className="label">Email</label>
+            <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} className="input" autoComplete="email" required />
+          </div>
+          <div>
+            <label htmlFor="mobile" className="label">Mobile number</label>
+            <input id="mobile" name="mobile" inputMode="numeric" maxLength={10} value={formData.mobile} onChange={handleChange} className="input" autoComplete="tel-national" required />
+          </div>
+          <div>
+            <label htmlFor="password" className="label">Password</label>
+            <input id="password" name="password" type="password" value={formData.password} onChange={handleChange} className="input" autoComplete="new-password" required />
+            <p className="mt-1.5 text-xs text-gray-500">6-12 characters, with an uppercase letter, a number and a special character.</p>
+          </div>
+          <button type="submit" disabled={submitting} className="btn-primary w-full">
+            {submitting ? "Creating account..." : "Create account"}
+          </button>
+        </form>
 
-        <input type="text" name="name"
-          placeholder="Name"
-          onChange={handleChange}
-          value={formData.name} required
-          className="w-full p-2 border rounded-lg mb-4" />
-        <input type="email"
-          name="email"
-          placeholder="Email"
-          onChange={handleChange}
-          value={formData.email} required
-          className="w-full p-2 border rounded-lg mb-4" />
-        <input type="text"
-          name="mobile" placeholder="Mobile"
-          onChange={handleChange}
-          value={formData.mobile} required
-          className="w-full p-2 border rounded-lg mb-4" />
-        <input type="password"
-          name="password"
-          placeholder="Password"
-          onChange={handleChange}
-          value={formData.password} required
-          className="w-full p-2 border rounded-lg mb-4" />
-
-        <select name="role" onChange={handleChange} value={formData.role} className="w-full p-2 border rounded-lg mb-4">
-          <option value="user">User</option>
-          <option value="admin">Admin</option>
-          <option value="superadmin">Super Admin</option>
-        </select>
-
-        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Register</button>
-      </form>
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Already have an account?{" "}
+          <Link to="/login" state={location.state} className="font-medium text-brand-700 hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

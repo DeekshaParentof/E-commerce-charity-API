@@ -1,102 +1,139 @@
-import { useContext, useState } from "react";
-import { Link } from "react-router-dom";
-import { Menu, X } from "lucide-react";
-import { AuthContext } from "../context/AuthContext";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, Heart, LogOut, MapPin, Menu, Package, ShoppingCart, X } from "lucide-react";
+import { useAuth, useCart } from "../context/contexts";
 
-const Navbar = () => {
-  const { user, logout } = useContext(AuthContext);
-  const [isOpen, setIsOpen] = useState(false);
+const navLinkClass = ({ isActive }) =>
+  `text-sm font-medium transition ${isActive ? "text-brand-700" : "text-gray-600 hover:text-gray-900"}`;
+
+const mobileLinkClass = ({ isActive }) =>
+  `rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-brand-50 text-brand-700" : "hover:bg-gray-50"}`;
+
+function Navbar() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const { count } = useCart();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    setMobileOpen(false);
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
+
+  const firstName = user?.name?.split(" ")[0] || "Account";
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        
-        {/* Logo */}
-        <Link to="/" className="text-2xl font-bold text-blue-600">
-          E-Commerce
+    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
+      <nav className="container-page flex h-16 items-center justify-between gap-4">
+        <Link to="/" className="flex items-center gap-2 text-lg font-bold text-gray-900">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <Heart className="h-4 w-4" fill="currentColor" />
+          </span>
+          Charity Shop
         </Link>
 
-        {/* Desktop Menu */}
-        <div className="hidden md:flex space-x-6">
-          <Link to="/" className="hover:text-blue-600">Home</Link>
-          <Link to="/products" className="hover:text-blue-600">Products</Link>
-          <Link to="/categories" className="hover:text-blue-600">Categories</Link>
-
-          {/* Only Admins & Super Admins */}
-          {user?.role === "admin" || user?.role === "superadmin" ? (
-            <>
-              <Link to="/charity" className="hover:text-blue-600">Charity</Link>
-              <Link to="/dashboard" className="hover:text-blue-600">Dashboard</Link>
-            </>
-          ) : null}
+        <div className="hidden items-center gap-8 md:flex">
+          <NavLink to="/" end className={navLinkClass}>Home</NavLink>
+          <NavLink to="/products" className={navLinkClass}>Shop</NavLink>
+          {isAuthenticated && <NavLink to="/orders" className={navLinkClass}>Orders</NavLink>}
         </div>
 
-        {/* Right side */}
-        <div className="hidden md:flex space-x-4">
-          {user ? (
-            <>
-              <span className="text-gray-600">Hi, {user.email}</span>
-              <button
-                onClick={logout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Login</Link>
-              <Link to="/register" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Register</Link>
-            </>
-          )}
+        <div className="flex items-center gap-2">
+          <Link to="/cart" className="relative rounded-lg p-2 text-gray-700 hover:bg-gray-100" aria-label={`Cart, ${count} items`}>
+            <ShoppingCart className="h-5 w-5" />
+            {count > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-semibold text-white">
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
+          </Link>
+
+          <div className="hidden md:block">
+            {isAuthenticated ? (
+              <div className="relative" ref={menuRef}>
+                <button
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                  aria-expanded={menuOpen}
+                >
+                  Hi, {firstName}
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                    <p className="truncate border-b border-gray-100 px-4 py-2 text-xs text-gray-500">{user?.email}</p>
+                    <Link to="/orders" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50">
+                      <Package className="h-4 w-4" /> My orders
+                    </Link>
+                    <Link to="/addresses" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50">
+                      <MapPin className="h-4 w-4" /> Addresses
+                    </Link>
+                    <button onClick={handleLogout} className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                      <LogOut className="h-4 w-4" /> Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link to="/login" className="btn-secondary py-2">Login</Link>
+                <Link to="/register" className="btn-primary py-2">Sign up</Link>
+              </div>
+            )}
+          </div>
+
+          <button
+            className="rounded-lg p-2 text-gray-700 hover:bg-gray-100 md:hidden"
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
+      </nav>
 
-        {/* Mobile Menu Button */}
-        <button
-          className="md:hidden text-gray-700"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {isOpen ? <X size={28} /> : <Menu size={28} />}
-        </button>
-      </div>
-
-      {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden bg-white shadow-lg p-4 space-y-4">
-          <Link to="/" className="block hover:text-blue-600">Home</Link>
-          <Link to="/products" className="block hover:text-blue-600">Products</Link>
-          <Link to="/categories" className="block hover:text-blue-600">Categories</Link>
-
-          {user?.role === "admin" || user?.role === "superadmin" ? (
-            <>
-              <Link to="/charity" className="block hover:text-blue-600">Charity</Link>
-              <Link to="/dashboard" className="block hover:text-blue-600">Dashboard</Link>
-            </>
-          ) : null}
-
-          <hr />
-          {user ? (
-            <>
-              <span className="block text-gray-600">Hi, {user.email}</span>
-              <button
-                onClick={logout}
-                className="w-full bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="block hover:text-blue-600">Login</Link>
-              <Link to="/register" className="block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                Register
-              </Link>
-            </>
-          )}
+      {mobileOpen && (
+        <div className="border-t border-gray-200 bg-white md:hidden">
+          <div className="container-page flex flex-col gap-1 py-3">
+            <NavLink to="/" end className={mobileLinkClass}>Home</NavLink>
+            <NavLink to="/products" className={mobileLinkClass}>Shop</NavLink>
+            {isAuthenticated ? (
+              <>
+                <NavLink to="/orders" className={mobileLinkClass}>My orders</NavLink>
+                <NavLink to="/addresses" className={mobileLinkClass}>Addresses</NavLink>
+                <p className="mt-2 truncate border-t border-gray-100 px-3 pt-3 text-xs text-gray-500">Signed in as {user?.email}</p>
+                <button onClick={handleLogout} className="rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50">
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+                <Link to="/login" className="btn-secondary">Login</Link>
+                <Link to="/register" className="btn-primary">Sign up</Link>
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </nav>
+    </header>
   );
-};
+}
 
 export default Navbar;

@@ -1,7 +1,5 @@
 import api from "./api";
 
-export const getProducts = () => api.get("/product");
-export const addProduct = (data) => api.post("/product", data);
+// params: { status, category, charity, search }
+export const getProducts = (params) => api.get("/product", { params });
 export const getProductById = (id) => api.get(`/product/${id}`);
-export const updateProduct = (id, data) => api.put(`/product/${id}`, data);
-export const deleteProduct = (id) => api.delete(`/product/${id}`);
