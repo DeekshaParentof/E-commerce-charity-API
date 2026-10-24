@@ -56,6 +56,7 @@ cd backend
 npm install
 cp .env.example .env      # then fill in the values (see below)
 npm run seed              # optional: super admin + demo categories, charity and products
+                          # (re-running it refreshes demo images/text without touching stock or prices)
 npm run dev               # http://localhost:8080
 ```
 
@@ -86,6 +87,7 @@ npm run dev               # http://localhost:5173
 | `TEST_RECIPIENT_EMAIL` | no | If set, all order emails go to this address instead of the customer and charity |
 | `TWILIO_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`, `TEST_RECIPIENT_PHONE` | no | Order confirmation SMS. Only sent when all four are set. |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | no | Credentials for the super admin created by `npm run seed` |
+| `DEMO_IMAGE_BASE_URL` | no | Base URL for seeded demo images (default `/demo`, i.e. served by the frontend from `frontend/public/demo`) |
 
 Email and SMS are optional. If they aren't configured, or if sending fails, the order is still placed and the error is logged on the server.
 
@@ -138,6 +140,10 @@ Base URL: `/api/v1`. 🔒 means the request needs `Authorization: Bearer <token>
 - `discount` is a **percentage**. The server calculates the price (`price × (100 − discount) / 100 × quantity`) and reduces stock in a single atomic update. When stock reaches 0, the product is marked `sold`.
 - Each order stores a copy of the delivery address, so editing or deleting an address later doesn't change past orders.
 - There is no payment gateway. The UI says payment is collected on delivery.
+
+## Demo images
+
+The seeded products use public-domain photos stored in `frontend/public/demo/`, so the frontend serves them itself (credits are in `frontend/public/demo/CREDITS.md`). Products that admins create through the API upload their images to Cloudinary instead.
 
 ## Deployment
 

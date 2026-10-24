@@ -13,27 +13,37 @@ const Product = require("../models/productSchema");
 const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@charityshop.org";
 const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin@123";
 
-const image = (seed) => `https://picsum.photos/seed/${seed}/600/450`;
+// Demo photos live in frontend/public/demo (see CREDITS.md there), so by default
+// they're served by the frontend itself. Set DEMO_IMAGE_BASE_URL to host them elsewhere.
+const imageBase = (process.env.DEMO_IMAGE_BASE_URL || "/demo").replace(/\/$/, "");
+const image = (file) => `${imageBase}/${file}.jpg`;
 
 const categories = [
-    { title: "Handicrafts", image: image("handicrafts") },
-    { title: "Books", image: image("books") },
-    { title: "Home Decor", image: image("homedecor") },
+    { title: "Handicrafts", image: image("category-handicrafts") },
+    { title: "Books", image: image("category-books") },
+    { title: "Home Decor", image: image("category-home-decor") },
 ];
 
+// `formerly` lists old demo titles so re-running the seed updates them in place.
 const products = [
-    { title: "Handwoven Basket", category: "Handicrafts", price: 499, discount: 10, short_description: "Natural jute", long_description: "Handwoven by artisans from local villages." },
-    { title: "Clay Diya Set", category: "Home Decor", price: 249, discount: 0, short_description: "Set of 6 diyas", long_description: "Hand-painted clay lamps for every occasion." },
-    { title: "Story Book Bundle", category: "Books", price: 799, discount: 15, short_description: "5 kids books", long_description: "Illustrated stories donated by local writers." },
-    { title: "Block Print Cushion", category: "Home Decor", price: 399, discount: 5, short_description: "Cotton cover", long_description: "Hand block-printed cushion cover, 16x16 inches." },
-    { title: "Bamboo Pen Stand", category: "Handicrafts", price: 199, discount: 0, short_description: "Eco pen stand", long_description: "Sustainable bamboo desk organiser, handmade." },
-    { title: "Recycled Notebook", category: "Books", price: 149, discount: 0, short_description: "Recycled paper", long_description: "A5 notebook made from 100% recycled paper." },
+    { title: "Handwoven Basket", image: "handwoven-basket", category: "Handicrafts", price: 499, discount: 10, short_description: "Colorful weave", long_description: "Handwoven grass baskets made by village artisans." },
+    { title: "Clay Diya Set", image: "clay-diya-set", category: "Home Decor", price: 249, discount: 0, short_description: "Set of 6 diyas", long_description: "Handmade clay lamps for festivals and every day." },
+    { title: "Story Book Bundle", image: "story-book-bundle", category: "Books", price: 799, discount: 15, short_description: "Set of 5 books", long_description: "Pre-loved classic stories donated by readers." },
+    { title: "Block Print Cushion", image: "block-print-cushion", category: "Home Decor", price: 399, discount: 5, short_description: "Cotton cover", long_description: "Hand block-printed cushion cover, 16x16 inches." },
+    { title: "Upcycled Pen Stand", formerly: ["Bamboo Pen Stand"], image: "upcycled-pen-stand", category: "Handicrafts", price: 199, discount: 0, short_description: "Tin can holder", long_description: "Pen holders upcycled from tin cans, handmade." },
+    { title: "Recycled Notebook", image: "recycled-notebook", category: "Books", price: 149, discount: 0, short_description: "Recycled paper", long_description: "A5 notebook made from 100% recycled paper." },
 ];
 
-async function upsert(Model, filter, doc) {
+// Creates the record, or (if it exists) refreshes only the `refresh` fields
+// so stock, prices and status changed since seeding are left alone.
+async function upsert(Model, filter, doc, refresh = {}) {
     const existing = await Model.findOne(filter);
-    if (existing) return existing;
-    return Model.create(doc);
+    if (!existing) return Model.create(doc);
+    if (Object.keys(refresh).length) {
+        existing.set(refresh);
+        await existing.save();
+    }
+    return existing;
 }
 
 async function seed() {
@@ -50,7 +60,7 @@ async function seed() {
 
     const categoryDocs = {};
     for (const c of categories) {
-        categoryDocs[c.title] = await upsert(Category, { title: c.title }, { ...c, user_id: admin._id });
+        categoryDocs[c.title] = await upsert(Category, { title: c.title }, { ...c, user_id: admin._id }, { image: c.image });
     }
 
     const now = new Date();
@@ -58,28 +68,31 @@ async function seed() {
     const charity = await upsert(Charity, { name: "EducateEveryChild" }, {
         name: "EducateEveryChild",
         description: "Funding school supplies for children in rural communities.",
-        banner: image("charity"),
+        banner: image("charity-banner"),
         user_id: admin._id,
         charity_email: "contact@educateeverychild.org",
         start_date: now.toISOString().split(".")[0] + "Z",
         end_date: inSixMonths.toISOString().split(".")[0] + "Z",
         status: "live",
-    });
+    }, { banner: image("charity-banner") });
 
     for (const p of products) {
-        await upsert(Product, { title: p.title }, {
+        const display = {
             title: p.title,
             short_description: p.short_description,
             long_description: p.long_description,
+            image: image(p.image),
+        };
+        await upsert(Product, { title: { $in: [p.title, ...(p.formerly || [])] } }, {
+            ...display,
             price: p.price,
             discount: p.discount,
             quantity: 30,
             status: "active",
-            image: image(p.title.replace(/\s+/g, "-").toLowerCase()),
             user_id: admin._id,
             charity_id: charity._id,
             category_id: categoryDocs[p.category]._id,
-        });
+        }, display);
     }
 
     console.log("Seed complete");
