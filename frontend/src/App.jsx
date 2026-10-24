@@ -14,6 +14,14 @@ import Addresses from "./pages/Addresses";
 import Orders from "./pages/Orders";
 import OrderDetail from "./pages/OrderDetail";
 import NotFound from "./pages/NotFound";
+import AdminRoute from "./components/AdminRoute";
+import AdminLayout from "./components/admin/AdminLayout";
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminCharities from "./pages/admin/AdminCharities";
+import AdminCharityDetail from "./pages/admin/AdminCharityDetail";
+import CharityForm from "./pages/admin/CharityForm";
+import ProductForm from "./pages/admin/ProductForm";
+import AdminCategories from "./pages/admin/AdminCategories";
 
 function App() {
   return (
@@ -34,6 +42,18 @@ function App() {
               <Route path="/addresses" element={<Addresses />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/orders/:id" element={<OrderDetail />} />
+            </Route>
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverview />} />
+                <Route path="charities" element={<AdminCharities />} />
+                <Route path="charities/new" element={<CharityForm />} />
+                <Route path="charities/:id" element={<AdminCharityDetail />} />
+                <Route path="charities/:id/edit" element={<CharityForm />} />
+                <Route path="charities/:charityId/products/new" element={<ProductForm />} />
+                <Route path="products/:id/edit" element={<ProductForm />} />
+                <Route path="categories" element={<AdminCategories />} />
+              </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

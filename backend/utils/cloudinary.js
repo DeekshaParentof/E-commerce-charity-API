@@ -12,12 +12,15 @@ cloudinary.config({
 })
 
 function uploadToCloudinary(buffer){
+    if (!cloud_name || !api_key || !api_secret) {
+        return Promise.reject(new Error("Image uploads are not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env"))
+    }
     return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { resource_type: "image" },
+      { resource_type: "image", folder: process.env.CLOUDINARY_FOLDER || "charity-shop" },
       (error, result) => {
         if (error) reject(error);
-        else resolve(result.secure_url); 
+        else resolve(result.secure_url);
       }
     );
     stream.end(buffer);

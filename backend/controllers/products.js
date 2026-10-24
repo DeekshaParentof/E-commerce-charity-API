@@ -87,110 +87,67 @@ async function updateProduct(req, res) {
     try {
         const { id } = req.params;
 
-        if (req.user.role === "admin") {
-            const product = await Product.findOne({ _id: id });
-            if (!product) {
-                return res.status(404).json({
-                    status: "Failed",
-                    message: "Product not found"
-                });
-            }
+        if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Not authorized"
+            });
+        }
 
+        const product = await Product.findOne({ _id: id });
+        if (!product) {
+            return res.status(404).json({
+                status: "Failed",
+                message: "Product not found"
+            });
+        }
+
+        const {
+            title,
+            short_description,
+            long_description,
+            quantity,
+            price,
+            discount,
+            status,
+            category_id,
+            charity_id
+        } = req.body;
+
+        if (req.user.role === "admin") {
             if (product.user_id.toString() !== req.user._id.toString()) {
                 return res.status(403).json({
                     status: "Failed",
                     message: "Not authorized"
                 });
             }
-
-            const {
-                title,
-                short_description,
-                long_description,
-                quantity,
-                price,
-                discount,
-                status,
-                image,
-                category_id,
-                charity_id
-            } = req.body;
-
-            const updated_product = await Product.updateOne({ _id: id },
-                {
-                    $set: {
-                        title,
-                        short_description,
-                        long_description,
-                        quantity,
-                        price,
-                        discount,
-                        status,
-                        image,
-                        category_id,
-                        charity_id
-                    }
-                }
-            );
-
-            return res.status(201).json({
-                status: "success",
-                message: "Product updated successfully",
-                data: updated_product
-            });
-
-        } else if (req.user.role === "super_admin") {
-            const product = await Product.findOne({ _id: id });
-            if (!product) {
-                return res.status(404).json({
+            // Same ownership rules as createProduct when moving a product.
+            if (charity_id && charity_id !== product.charity_id.toString()
+                && !(await Charity.exists({ _id: charity_id, user_id: req.user._id }))) {
+                return res.status(403).json({
                     status: "Failed",
-                    message: "Product not found"
+                    message: "You can only add products to your own charities."
                 });
             }
-
-            const {
-                title,
-                short_description,
-                long_description,
-                quantity,
-                price,
-                discount,
-                status,
-                image,
-                category_id,
-                charity_id
-            } = req.body;
-
-            const updated_product = await Product.updateOne(
-                { _id: id },
-                {
-                    $set: {
-                        title,
-                        short_description,
-                        long_description,
-                        quantity,
-                        price,
-                        discount,
-                        status,
-                        image,
-                        category_id,
-                        charity_id
-                    }
-                }
-            );
-
-            return res.status(201).json({
-                status: "success",
-                message: "Product updated successfully",
-                data: updated_product
-            });
-
-        } else {
-            return res.status(403).json({
-                status: "Failed",
-                message: "Not authorized"
-            });
+            if (category_id && category_id !== product.category_id.toString()
+                && !(await Category.exists({ _id: category_id, user_id: req.user._id }))) {
+                return res.status(403).json({
+                    status: "Failed",
+                    message: "You can only use categories you created."
+                });
+            }
         }
+
+        product.set({ title, short_description, long_description, quantity, price, discount, category_id, charity_id });
+        if (status) product.status = status;
+        if (req.file) product.image = await uploadToCloudinary(req.file.buffer);
+        const updated_product = await product.save();
+
+        return res.status(200).json({
+            status: "success",
+            message: "Product updated successfully",
+            data: updated_product
+        });
 
     } catch (err) {
         return res.status(500).json({
@@ -301,14 +258,9 @@ async function getProductsByCharityIdForAdmin(req, res) {
             }
         }
 
-        const products = await Product.find({ charity_id: charity_id });
-
-        if (!products || products.length === 0) {
-            return res.status(404).json({
-                status: "Failed",
-                message: "No products found for this charity",
-            });
-        }
+        const products = await Product.find({ charity_id: charity_id })
+            .populate({ path: "category_id", select: "title" })
+            .sort({ createdAt: -1 });
 
         return res.status(200).json({
             status: "success",

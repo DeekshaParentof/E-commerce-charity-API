@@ -280,7 +280,7 @@ async function getOrderByCharityId(req, res) {
         }
 
         const orders = await Order.find({ charity_id: charity_id })
-            .populate(orderPopulate)
+            .populate([...orderPopulate, { path: "user_id", select: "name email mobile" }])
             .sort({ createdAt: -1 })
 
         return res.status(200).json({

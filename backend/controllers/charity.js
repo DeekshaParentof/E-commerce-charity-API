@@ -20,7 +20,14 @@ async function createCharity(req, res) {
             })
         }
 
-        if (Number(platform_fee) + Number(donation_fee) + Number(profit) > 100) {
+        if (status && req.user.role === "admin" && !ADMIN_STATUSES.includes(status)) {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Only a super admin can approve a charity or make it live"
+            });
+        }
+
+        if (feesExceed100({ platform_fee, donation_fee, profit })) {
             return res.status(400).json({
                 status: "Failed",
                 message: "Sum of donation fee + platform fee + profit should not exceed 100"
@@ -36,7 +43,7 @@ async function createCharity(req, res) {
             charity_email,
             start_date, end_date,
             platform_fee, donation_fee, profit,
-            status
+            status: status || "pending"
         }
 
         const data = await Charity.create(newCharity)
@@ -199,91 +206,69 @@ async function getCharityByIdOfAdmin(req, res) {
     }
 }
 
+// Admins may only keep their charities pending or close them;
+// approving / going live is a super admin decision.
+const ADMIN_STATUSES = ["pending", "closed"];
+
+function feesExceed100({ platform_fee, donation_fee, profit }) {
+    return Number(platform_fee || 0) + Number(donation_fee || 0) + Number(profit || 0) > 100;
+}
+
 async function updateCharity(req, res) {
     try {
         const { id } = req.params;
 
-        if (req.user.role == "admin") {
-            const charity = await Charity.findOne({ _id: id });
-            if (!charity) {
-                return res.status(404).json({
-                    status: "Failed",
-                    message: "Charity not found"
-                });
-            }
-
-            if (charity.user_id.toString() !== req.user._id.toString()) {
-                return res.status(403).json({
-                    status: "Failed",
-                    message: "Not authorized"
-                });
-            }
-
-            const { name, description, charity_email, start_date, end_date, platform_fee, donation_fee, profit, status } = req.body;
-
-            const updated_charity = await Charity.updateOne(
-                { _id: id },
-                {
-                    $set: {
-                        name,
-                        description,
-                        charity_email,
-                        start_date,
-                        end_date,
-                        platform_fee,
-                        donation_fee,
-                        profit,
-                        status
-                    }
-                }
-            );
-
-            return res.status(201).json({
-                status: "success",
-                message: "Charity updated successfully",
-                data: updated_charity
-            });
-
-        } else if (req.user.role == "super_admin") {
-            const charity = await Charity.findOne({ _id: id });
-            if (!charity) {
-                return res.status(404).json({
-                    status: "Failed",
-                    message: "Charity not found"
-                });
-            }
-
-            const { name, description, charity_email, start_date, end_date, platform_fee, donation_fee, profit, status } = req.body;
-
-            const updated_charity = await Charity.updateOne(
-                { _id: id },
-                {
-                    $set: {
-                        name,
-                        description,
-                        charity_email,
-                        start_date,
-                        end_date,
-                        platform_fee,
-                        donation_fee,
-                        profit,
-                        status
-                    }
-                }
-            );
-
-            return res.status(201).json({
-                status: "success",
-                message: "Charity updated successfully",
-                data: updated_charity
-            });
-
-        } else {
+        if (req.user.role !== "admin" && req.user.role !== "super_admin") {
             return res.status(403).json({
                 status: "Failed",
                 message: "Not authorized"
             });
         }
+
+        const charity = await Charity.findOne({ _id: id });
+        if (!charity) {
+            return res.status(404).json({
+                status: "Failed",
+                message: "Charity not found"
+            });
+        }
+
+        if (req.user.role === "admin" && charity.user_id.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Not authorized"
+            });
+        }
+
+        const { name, description, charity_email, start_date, end_date, status } = req.body;
+        const platform_fee = req.body.platform_fee ?? charity.platform_fee;
+        const donation_fee = req.body.donation_fee ?? charity.donation_fee;
+        const profit = req.body.profit ?? charity.profit;
+
+        if (feesExceed100({ platform_fee, donation_fee, profit })) {
+            return res.status(400).json({
+                status: "Failed",
+                message: "Sum of donation fee + platform fee + profit should not exceed 100"
+            });
+        }
+
+        if (status && status !== charity.status && req.user.role === "admin" && !ADMIN_STATUSES.includes(status)) {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Only a super admin can approve a charity or make it live"
+            });
+        }
+
+        charity.set({ name, description, charity_email, start_date, end_date, platform_fee, donation_fee, profit });
+        if (status) charity.status = status;
+        if (req.file) charity.banner = await uploadToCloudinary(req.file.buffer);
+        const updated_charity = await charity.save();
+
+        return res.status(200).json({
+            status: "success",
+            message: "Charity updated successfully",
+            data: updated_charity
+        });
 
     } catch (err) {
         return res.status(500).json({
@@ -292,7 +277,5 @@ async function updateCharity(req, res) {
         });
     }
 }
-
-
 
 module.exports = { createCharity, getAllCharities, getCharitiesOfAdmin, getCharityById,getCharityByIdOfAdmin, updateCharity }

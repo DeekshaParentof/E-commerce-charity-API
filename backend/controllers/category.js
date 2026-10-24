@@ -100,54 +100,48 @@ async function getCategoriesOfAdmin(req, res) {
 async function updateCategory(req, res) {
     try {
         const { id } = req.params
-        if (req.user.role == "admin") {
-            let category = await Category.findOne({ _id: id })
-            if (!category) {                  
-                   return res.status(404).json({
-                    status: "Failed",
-                    message: "Category not found"
-                });              
-            } 
-            
-            if (category.user_id.toString() !== req.user_id.toString()) {
-                return res.status(403).json({
-                    status: "Failed",
-                    message: "Not authorized"
-                });
-            }
-            const { title } = req.body
-                let updated_category = await Category.updateOne({ _id: id }, { $set: { title: title } });
-                return res.status(201).json({
-                    status: "seccess",
-                    message: "Updation successful!!!",
-                    data: updated_category
-                })
-        } else if (req.user.role == "super_admin") {
-            let category = await Category.findOne({ _id: id })
-            if (category) {
-                const { title } = req.body
-                let updated_category = await Category.updateOne({ _id: id }, { $set: { title: title } });
-                return res.status(201).json({
-                    status: "seccess",
-                    message: "Updation successful!!!",
-                    data: {
-                        data: updated_category
-                    }
-                })
-            } else {
-                return res.status(404).json({
-                    status: "failed",
-                    message: "Category not found"
-                });
-            }
-        }else {
+
+        if (req.user.role !== "admin" && req.user.role !== "super_admin") {
             return res.status(403).json({
-                status:"Failed",
-                message:"Not authorized"
+                status: "Failed",
+                message: "Not authorized"
             })
         }
+
+        const category = await Category.findOne({ _id: id })
+        if (!category) {
+            return res.status(404).json({
+                status: "Failed",
+                message: "Category not found"
+            });
+        }
+
+        if (req.user.role === "admin" && category.user_id.toString() !== req.user_id.toString()) {
+            return res.status(403).json({
+                status: "Failed",
+                message: "Not authorized"
+            });
+        }
+
+        const title = typeof req.body.title === "string" ? req.body.title.trim() : ""
+        if (!title && !req.file) {
+            return res.status(400).json({
+                status: "Failed",
+                message: "Provide a title or an image to update"
+            })
+        }
+
+        if (title) category.title = title
+        if (req.file) category.image = await uploadToCloudinary(req.file.buffer)
+        const updated_category = await category.save()
+
+        return res.status(200).json({
+            status: "success",
+            message: "Category updated successfully",
+            data: updated_category
+        })
     } catch (err) {
-        return res.status(400).json({
+        return res.status(500).json({
             status: "failed",
             message: err.message
         });

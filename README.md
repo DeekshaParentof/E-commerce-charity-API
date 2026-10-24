@@ -17,9 +17,22 @@ A full-stack e-commerce app where every product belongs to a charity campaign, a
 - Order history and order detail, including the delivery address used
 - Responsive layout from mobile to desktop
 
-**Admins (API only)**
-- Admins and super admins create categories, charities and products through the API, with image uploads to Cloudinary
-- Admins manage only their own records; super admins can manage everything
+**Admins (dashboard at `/admin`)**
+- Overview: totals for charities, products, orders and revenue, plus how the revenue splits between donations, platform fees and profit
+- Charities: create and edit campaigns (banner, dates, revenue split) and change their status
+- Products: add products to a charity, edit price, discount, stock and image, and activate or deactivate them
+- Categories: create categories and rename them or replace their image
+- Orders for each charity, with customer details and the donation share of each order
+- Images are uploaded to Cloudinary
+
+**Roles**
+| | Admin | Super admin |
+| --- | --- | --- |
+| Charities, products and categories | Only their own | All |
+| Charity status | `pending` or `closed` | Any, including `approved` and `live` |
+| Orders | Only for their own charities | All |
+
+A charity's products can only be ordered while the charity is **live**, so an admin's new charity needs a super admin to approve it.
 
 ## Project structure
 
@@ -35,7 +48,7 @@ A full-stack e-commerce app where every product belongs to a charity campaign, a
 │   └── index.js             App entry point
 └── frontend/                React + Vite app
     └── src/
-        ├── components/      Navbar, ProductCard, AddressForm, ...
+        ├── components/      Navbar, ProductCard, AddressForm, admin/ ...
         ├── context/         Auth, Cart and Toast providers
         ├── hooks/           useFetch
         ├── pages/           Route pages
@@ -101,7 +114,13 @@ Email and SMS are optional. If they aren't configured, or if sending fails, the 
 
 Public registration always creates a `user` account, so nobody can make themselves an admin. To get an admin:
 - run `npm run seed`, which creates a `super_admin` using `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`, or
-- register normally, then change that user's `role` to `admin` or `super_admin` in MongoDB.
+- register normally, then change that user's `role` in MongoDB, for example:
+
+  ```bash
+  mongosh "<MONGO_URL>" --eval 'db.users.updateOne({ email: "someone@example.org" }, { $set: { role: "admin" } })'
+  ```
+
+The user needs to log out and back in for the new role to take effect. The **Dashboard** link then appears in the navbar.
 
 ## API reference
 
@@ -117,14 +136,17 @@ Base URL: `/api/v1`. 🔒 means the request needs `Authorization: Bearer <token>
 | GET | `/product/category/:id` | Products in a category |
 | GET | `/product/charity/:id` | Products of a charity |
 | POST 🔒 | `/product` | Create a product (admin; multipart with `image`) |
-| PUT / PATCH 🔒 | `/product/:id` | Update a product, or only its status (admin) |
+| PUT 🔒 | `/product/:id` | Update a product (admin; multipart, optional new `image`) |
+| PATCH 🔒 | `/product/:id` | Update only a product's `status` (admin) |
 | GET 🔒 | `/product/admin/charity/:id` | Admin view of a charity's products |
 | GET | `/category` | List categories |
 | POST 🔒 | `/category` | Create a category (admin; multipart with `image`) |
-| GET 🔒 / PATCH 🔒 | `/category/admin`, `/category/:id` | Admin list / update |
+| GET 🔒 | `/category/admin` | Admin list of categories |
+| PATCH 🔒 | `/category/:id` | Rename a category and/or replace its `image` (admin; multipart) |
 | GET | `/charity`, `/charity/:id` | List charities / get one |
 | POST 🔒 | `/charity` | Create a charity (admin; multipart with `banner`) |
-| GET 🔒 / PUT 🔒 | `/charity/admin`, `/charity/admin/:id`, `/charity/:id` | Admin list / get / update |
+| GET 🔒 | `/charity/admin`, `/charity/admin/:id` | Admin list / get one |
+| PUT 🔒 | `/charity/:id` | Update a charity (admin; multipart, optional new `banner`) |
 | GET 🔒 | `/address` | List the user's addresses |
 | POST 🔒 | `/address` | Add `{ location, city, state, pincode, country? }` |
 | PUT 🔒 / DELETE 🔒 | `/address/:id` | Update or delete your own address |

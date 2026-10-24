@@ -1,6 +1,19 @@
 const { body, validationResult } = require("express-validator");
 
-const productValidationSchema = [
+// New products start with 25-50 units; edits allow any non-negative stock
+// (stock drops below 25 as orders come in).
+const quantityRules = {
+    create: body("quantity")
+        .notEmpty().withMessage("Quantity is required")
+        .isInt({ min: 25, max: 50 })
+        .withMessage("Quantity must be between 25 and 50"),
+    update: body("quantity")
+        .notEmpty().withMessage("Quantity is required")
+        .isInt({ min: 0 })
+        .withMessage("Quantity must be 0 or more"),
+};
+
+const productRules = (mode) => [
     body("title")
         .notEmpty().withMessage("Title is required")
         .isString().withMessage("Title must be a string"),
@@ -15,18 +28,15 @@ const productValidationSchema = [
         .isLength({ min: 20, max: 50 })
         .withMessage("Long description must be between 20 and 50 characters"),
 
-    body("quantity")
-        .notEmpty().withMessage("Quantity is required")
-        .isInt({ min: 25, max: 50 })
-        .withMessage("Quantity must be between 25 and 50"),
+    quantityRules[mode],
 
     body("price")
         .notEmpty().withMessage("Price is required")
-        .isNumeric().withMessage("Price must be a number"),
+        .isFloat({ min: 1 }).withMessage("Price must be a positive number"),
 
     body("discount")
         .optional()
-        .isNumeric().withMessage("Discount must be a number")
+        .isFloat({ min: 0, max: 100 }).withMessage("Discount must be a percentage between 0 and 100")
         .default(0),
 
     body("status")
@@ -43,6 +53,9 @@ const productValidationSchema = [
         .isMongoId().withMessage("Category ID must be a valid ObjectId"),
 ];
 
+const productValidationSchema = productRules("create");
+const productUpdateValidationSchema = productRules("update");
+
 function validateProduct(req, res, next) {
     const result = validationResult(req);
     if (!result.isEmpty()) {
@@ -55,4 +68,4 @@ function validateProduct(req, res, next) {
     }
 }
 
-module.exports = { productValidationSchema, validateProduct };
+module.exports = { productValidationSchema, productUpdateValidationSchema, validateProduct };
